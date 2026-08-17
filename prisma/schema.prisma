@@ -1,0 +1,290 @@
+// Study Planner — data model
+// Design notes:
+// - Course is created up front (name/code/semester); documents are uploaded to it.
+// - Extraction never writes directly to the plan: Event/Task/Milestone rows created
+//   during import start with approved=false and needsReview flags/notes, and only
+//   become part of the "real" plan once the user approves the ImportBatch.
+// - Hard deadlines (isOfficialDeadline=true) and computed recommendations
+//   (recommendedDate + recommendedDateReason) are always kept as distinct fields —
+//   never collapsed into a single "dueDate".
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Course {
+  id        String   @id @default(cuid())
+  name      String
+  code      String
+  semester  String
+  color     String   @default("#6366f1")
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sourceDocuments SourceDocument[]
+  importBatches   ImportBatch[]
+  events          Event[]
+  tasks           Task[]
+  milestones      Milestone[]
+
+  @@index([semester])
+}
+
+enum ImportBatchStatus {
+  PROCESSING
+  READY
+  APPROVED
+  FAILED
+}
+
+// Groups a set of files uploaded together into one Review Import session.
+model ImportBatch {
+  id          String            @id @default(cuid())
+  courseId    String
+  course      Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  status      ImportBatchStatus @default(PROCESSING)
+  errorMessage String?
+  createdAt   DateTime          @default(now())
+  approvedAt  DateTime?
+
+  documents SourceDocument[]
+  events    Event[]
+  tasks     Task[]
+  milestones Milestone[]
+}
+
+enum DocumentType {
+  PDF
+  XLSX
+  DOCX
+  TXT
+  UNKNOWN
+}
+
+enum DocumentStatus {
+  PENDING
+  PROCESSING
+  PROCESSED
+  FAILED
+}
+
+model SourceDocument {
+  id            String         @id @default(cuid())
+  courseId      String
+  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  importBatchId String?
+  importBatch   ImportBatch?   @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  filename      String // stored filename on disk
+  originalName  String // original upload name
+  fileType      DocumentType
+  mimeType      String
+  sizeBytes     Int
+  storagePath   String // relative to data/uploads
+  status        DocumentStatus @default(PENDING)
+  extractionMethod String?     // "ai" | "deterministic" | "failed"
+  errorMessage  String?
+  rawTextExcerpt String?       // first N chars, for debugging/traceability
+  uploadedAt    DateTime       @default(now())
+  processedAt   DateTime?
+
+  events     Event[]
+  tasks      Task[]
+  milestones Milestone[]
+
+  @@index([courseId])
+}
+
+enum EventType {
+  LECTURE
+  SEMINAR
+  EXERCISE_CLASS
+  WORKSHOP
+  EXAM
+  PRESENTATION
+  OTHER
+}
+
+model Event {
+  id       String    @id @default(cuid())
+  courseId String
+  course   Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title     String
+  type      EventType
+  date      DateTime
+  startTime String? // "HH:mm"
+  endTime   String? // "HH:mm"
+  location  String?
+  topic     String?
+  description String?
+  attended  Boolean   @default(false)
+
+  // Import / review metadata
+  importBatchId    String?
+  importBatch      ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  sourceDocumentId String?
+  sourceDocument   SourceDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  sourceSnippet    String?
+  confidence       Float?
+  approved         Boolean  @default(true) // false while awaiting review
+  needsReview      Boolean  @default(false)
+  reviewNote       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  relationships TaskEventRelationship[]
+
+  @@index([courseId, date])
+}
+
+enum TaskType {
+  READING
+  EXERCISE
+  VIDEO
+  WRITING
+  QUIZ
+  ASSIGNMENT
+  OTHER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum RequirementLevel {
+  REQUIRED
+  RECOMMENDED
+  OPTIONAL
+}
+
+model Task {
+  id       String   @id @default(cuid())
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  type              TaskType
+  title             String
+  description       String?
+  status            TaskStatus        @default(TODO)
+  requirementLevel  RequirementLevel  @default(RECOMMENDED)
+
+  // Underlying quantity, kept separately so estimates can be recalculated
+  // when the user changes Settings.
+  pageCount      Float?
+  articlePages   Boolean  @default(false) // true => use article reading speed instead of textbook
+  exerciseCount  Float?
+  wordCount      Float?
+  videoMinutes   Float?
+  estimatedMinutes Int? // cached, derived from quantities + Settings
+
+  // Dates: hard deadline vs. calculated recommendation are never merged.
+  dueDate                DateTime? // explicit/official deadline if the source stated one
+  isOfficialDeadline     Boolean   @default(false)
+  recommendedDate        DateTime?
+  recommendedDateReason  String?
+
+  completedAt DateTime?
+
+  // Import / review metadata
+  importBatchId    String?
+  importBatch      ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  sourceDocumentId String?
+  sourceDocument   SourceDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  sourceSnippet    String?
+  confidence       Float?
+  approved         Boolean  @default(true)
+  needsReview      Boolean  @default(false)
+  reviewNote       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  relationships TaskEventRelationship[]
+
+  @@index([courseId, status])
+}
+
+enum MilestoneType {
+  MANDATORY_ASSIGNMENT
+  COURSE_APPROVAL
+  PRESENTATION
+  MIDTERM
+  EXAM
+  OTHER
+}
+
+enum MilestoneStatus {
+  UPCOMING
+  IN_PROGRESS
+  DONE
+  MISSED
+}
+
+model Milestone {
+  id       String   @id @default(cuid())
+  courseId String
+  course   Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title       String
+  type        MilestoneType
+  description String?
+  deadline    DateTime?
+  isOfficialDeadline Boolean @default(true)
+  status      MilestoneStatus @default(UPCOMING)
+  requirements String?
+  wordCount   Float?
+
+  // Import / review metadata
+  importBatchId    String?
+  importBatch      ImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+  sourceDocumentId String?
+  sourceDocument   SourceDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  sourceSnippet    String?
+  confidence       Float?
+  approved         Boolean  @default(true)
+  needsReview      Boolean  @default(false)
+  reviewNote       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId, deadline])
+}
+
+enum RelationshipType {
+  PREPARATION_FOR
+  FOLLOW_UP_TO
+  RELATED_TO
+  REQUIRED_FOR
+}
+
+model TaskEventRelationship {
+  id      String            @id @default(cuid())
+  taskId  String
+  task    Task              @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  eventId String
+  event   Event             @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  type    RelationshipType
+
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, eventId, type])
+}
+
+// Singleton row (id = 1) holding the time-estimation configuration.
+model Settings {
+  id                   Int      @id @default(1)
+  textbookPageMinutes  Float    @default(2)
+  articlePageMinutes   Float    @default(3)
+  exerciseMinutes      Float    @default(12)
+  writingWordsPerHour  Float    @default(250)
+  updatedAt            DateTime @updatedAt
+}
