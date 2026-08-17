@@ -1,3 +1,25 @@
+/**
+ * Parses a "YYYY-MM-DD" (optionally with a time suffix) date string as
+ * local midnight. Plain `new Date("2026-08-19")` parses date-only ISO
+ * strings as UTC per spec, which silently shifts the calendar day back by
+ * one for anyone west of UTC — this is the correct way to turn a
+ * date-only string from an import/extraction pipeline into a Date.
+ */
+export function parseIsoDateLocal(value: string): Date {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return new Date(value);
+  const [, y, m, d] = match;
+  return new Date(Number(y), Number(m) - 1, Number(d));
+}
+
+/** Formats a Date as "YYYY-MM-DD" using its local calendar day (see parseIsoDateLocal). */
+export function formatIsoDateLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 /** Monday-based ISO week start, at local midnight. */
 export function getWeekStart(date: Date): Date {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
