@@ -9,8 +9,14 @@ import { ApproveButton } from "@/components/review/approve-button";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReviewImportPage({ params }: PageProps<"/courses/[courseId]/review/[batchId]">) {
+export default async function ReviewImportPage({
+  params,
+  searchParams,
+}: PageProps<"/courses/[courseId]/review/[batchId]">) {
   const { courseId, batchId } = await params;
+  const sp = await searchParams;
+  const skippedParam = sp.skipped;
+  const skipped = (Array.isArray(skippedParam) ? skippedParam[0] : skippedParam)?.split(",").filter(Boolean) ?? [];
   const data = await getReviewBatch(batchId);
   if (!data || data.course.id !== courseId) notFound();
 
@@ -64,6 +70,16 @@ export default async function ReviewImportPage({ params }: PageProps<"/courses/[
               {failedDocs.length} document{failedDocs.length === 1 ? "" : "s"} couldn&apos;t be analyzed:{" "}
               {failedDocs.map((d) => d.originalName).join(", ")}. The files are preserved on the course page — try
               re-uploading them, or add their contents manually.
+            </p>
+          </CardBody>
+        </Card>
+      )}
+
+      {skipped.length > 0 && (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardBody>
+            <p className="text-sm text-warning">
+              This file type is not currently supported: {skipped.join(", ")}. Everything else was analyzed below.
             </p>
           </CardBody>
         </Card>

@@ -19,11 +19,13 @@ export function EventRow({ event }: { event: Event }) {
       <div className="flex items-start gap-3">
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
           <input
+            aria-label="Event title"
             defaultValue={event.title}
             onBlur={(e) => e.target.value !== event.title && startTransition(() => updateDraftEvent(event.id, { title: e.target.value }))}
             className={inputClass}
           />
           <select
+            aria-label="Event type"
             defaultValue={event.type}
             onChange={(e) => startTransition(() => updateDraftEvent(event.id, { type: e.target.value as Event["type"] }))}
             className={inputClass}
@@ -35,6 +37,7 @@ export function EventRow({ event }: { event: Event }) {
             ))}
           </select>
           <input
+            aria-label="Event date"
             type="date"
             defaultValue={formatIsoDateLocal(event.date)}
             onChange={(e) => e.target.value && startTransition(() => updateDraftEvent(event.id, { date: parseIsoDateLocal(e.target.value) }))}

@@ -18,6 +18,7 @@ export function MilestoneRow({ milestone }: { milestone: Milestone }) {
       <div className="flex items-start gap-3">
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
           <input
+            aria-label="Milestone title"
             defaultValue={milestone.title}
             onBlur={(e) =>
               e.target.value !== milestone.title && startTransition(() => updateDraftMilestone(milestone.id, { title: e.target.value }))
@@ -25,6 +26,7 @@ export function MilestoneRow({ milestone }: { milestone: Milestone }) {
             className={inputClass}
           />
           <input
+            aria-label="Deadline"
             type="date"
             defaultValue={milestone.deadline ? formatIsoDateLocal(milestone.deadline) : ""}
             onChange={(e) =>

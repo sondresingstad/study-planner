@@ -44,7 +44,11 @@ export function DocumentUploadForm({ courseId }: { courseId: string }) {
         return;
       }
 
-      router.push(`/courses/${courseId}/review/${data.batchId}`);
+      const skippedParam: string =
+        Array.isArray(data.skipped) && data.skipped.length > 0
+          ? `?skipped=${encodeURIComponent(data.skipped.join(","))}`
+          : "";
+      router.push(`/courses/${courseId}/review/${data.batchId}${skippedParam}`);
     } catch {
       setError("We couldn't reach the server. Please try again.");
       setIsUploading(false);

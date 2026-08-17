@@ -48,6 +48,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         <div className="flex items-center gap-1">
           <Link
             href={`/calendar?month=${monthParam(prevMonth)}`}
+            aria-label="Previous month"
             className="flex size-8 items-center justify-center rounded-md border border-border hover:bg-surface-hover"
           >
             <ChevronLeft size={16} />
@@ -55,6 +56,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           <span className="w-36 text-center text-sm font-medium">{monthLabel}</span>
           <Link
             href={`/calendar?month=${monthParam(nextMonth)}`}
+            aria-label="Next month"
             className="flex size-8 items-center justify-center rounded-md border border-border hover:bg-surface-hover"
           >
             <ChevronRight size={16} />
@@ -144,7 +146,7 @@ async function EventPanel({ eventId, monthQuery }: { eventId: string; monthQuery
           </div>
           <h2 className="text-sm font-semibold">{event.title}</h2>
         </div>
-        <Link href={`/calendar?month=${monthQuery}`} className="text-muted hover:text-foreground">
+        <Link href={`/calendar?month=${monthQuery}`} aria-label="Close event details" className="text-muted hover:text-foreground">
           <X size={16} />
         </Link>
       </div>

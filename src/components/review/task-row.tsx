@@ -19,12 +19,14 @@ export function TaskRow({ task }: { task: Task }) {
       <div className="flex items-start gap-3">
         <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2">
           <input
+            aria-label="Task title"
             defaultValue={task.title}
             onBlur={(e) => e.target.value !== task.title && startTransition(() => updateDraftTask(task.id, { title: e.target.value }))}
             className={inputClass}
           />
           {task.type === "READING" && (
             <input
+              aria-label="Page count"
               type="number"
               min={0}
               defaultValue={task.pageCount ?? ""}
@@ -35,6 +37,7 @@ export function TaskRow({ task }: { task: Task }) {
           )}
           {task.type === "EXERCISE" && (
             <input
+              aria-label="Exercise count"
               type="number"
               min={0}
               defaultValue={task.exerciseCount ?? ""}
@@ -45,6 +48,7 @@ export function TaskRow({ task }: { task: Task }) {
           )}
           {task.type === "VIDEO" && (
             <input
+              aria-label="Video minutes"
               type="number"
               min={0}
               defaultValue={task.videoMinutes ?? ""}
@@ -54,6 +58,7 @@ export function TaskRow({ task }: { task: Task }) {
             />
           )}
           <select
+            aria-label="Requirement level"
             defaultValue={task.requirementLevel}
             onChange={(e) => startTransition(() => updateDraftTask(task.id, { requirementLevel: e.target.value as RequirementLevel }))}
             className={inputClass}
