@@ -11,6 +11,10 @@ export function isSameWeek(a: Date, b: Date): boolean {
   return getWeekStart(a).getTime() === getWeekStart(b).getTime();
 }
 
+export function isSameMonth(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+}
+
 export function isSameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -27,6 +31,24 @@ export function addDays(date: Date, days: number): Date {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
+}
+
+/** "Today" / "Tomorrow" / "Wed" / "Wed, Sep 3" (year included only if not the current year). */
+export function formatRelativeDay(date: Date, now: Date = new Date()): string {
+  if (isSameDay(date, now)) return "Today";
+  if (isSameDay(date, addDays(now, 1))) return "Tomorrow";
+  if (isSameDay(date, addDays(now, -1))) return "Yesterday";
+
+  const withinWeek = Math.abs(date.getTime() - now.getTime()) < 6 * 24 * 60 * 60 * 1000;
+  if (withinWeek) return date.toLocaleDateString("en-US", { weekday: "short" });
+
+  const includeYear = date.getFullYear() !== now.getFullYear();
+  return date.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: includeYear ? "numeric" : undefined,
+  });
 }
 
 /** ISO-like week number label, e.g. "Week 35". */

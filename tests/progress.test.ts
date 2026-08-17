@@ -32,10 +32,10 @@ describe("computeProgress", () => {
   it("keeps attendance separate from study workload", () => {
     const tasks = [task({ type: "EXERCISE", exerciseCount: 4, status: "DONE" })];
     const events = [
-      { type: "LECTURE", date: new Date("2026-08-10"), attended: true, approved: true },
-      { type: "LECTURE", date: new Date("2026-08-16"), attended: false, approved: true },
+      { type: "LECTURE" as const, date: new Date("2026-08-10"), attended: true, approved: true },
+      { type: "LECTURE" as const, date: new Date("2026-08-16"), attended: false, approved: true },
       // future event: should not count toward attendance yet
-      { type: "LECTURE", date: new Date("2026-09-01"), attended: false, approved: true },
+      { type: "LECTURE" as const, date: new Date("2026-09-01"), attended: false, approved: true },
     ];
     const result = computeProgress(tasks, events, [], now);
     expect(result.attendance.completed).toBe(1);
