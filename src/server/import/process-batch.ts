@@ -216,6 +216,7 @@ async function writeExtractionResult(args: {
         sourceDocumentId,
         type: "EXERCISE",
         title: item.title,
+        description: item.description,
         exerciseCount: item.exerciseCount,
         requirementLevel: item.requirementLevel as RequirementLevel,
         estimatedMinutes: minutes,

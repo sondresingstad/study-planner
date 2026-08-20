@@ -1,6 +1,7 @@
 import type { ParsedDocument } from "./types";
 import type { ExtractionResult } from "@/lib/ai/schema";
 import { formatIsoDateLocal } from "@/lib/dates";
+import { looksLikeNorwegianTimetable, extractNorwegianTimetable } from "./norwegian-timetable";
 
 const MONTH_NAMES =
   "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?";
@@ -186,6 +187,7 @@ function extractReadingAndExercisesFromProse(
     if (exerciseCount != null) {
       exercises.push({
         title: `Exercises — ${eventTitle}`.slice(0, 120),
+        description: null,
         exerciseCount,
         relatedEventTitle: eventTitle,
         relation: "FOLLOW_UP_TO",
@@ -484,6 +486,10 @@ const EMPTY_RESULT: ExtractionResult = {
  * blindly.
  */
 export function deterministicExtract(doc: ParsedDocument): ExtractionResult {
+  if (looksLikeNorwegianTimetable(doc.text)) {
+    return extractNorwegianTimetable(doc.text);
+  }
+
   const tableEvents = extractFromTables(doc.tables);
   const fromText = extractFromText(doc.text);
 

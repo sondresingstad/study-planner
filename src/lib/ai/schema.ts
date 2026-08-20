@@ -34,6 +34,7 @@ export const ExtractedReading = z.object({
 
 export const ExtractedExercise = z.object({
   title: z.string().min(1),
+  description: z.string().nullable(),
   exerciseCount: z.number().nullable(),
   relatedEventTitle: z.string().nullable(),
   relation: z.enum(["PREPARATION_FOR", "FOLLOW_UP_TO", "RELATED_TO"]).nullable(),
