@@ -170,10 +170,10 @@ describe("deterministicExtract — structured 'Date Class Topic Readings Activit
     expect(result.exercises).toHaveLength(0);
   });
 
-  it("creates a reading task per lecture, titled after the topic, with the textbook reference as description", () => {
+  it("creates a reading task per lecture, titled 'Read <reference>, \"<topic>\"', with the reference as description", () => {
     const result = deterministicExtract({ text: CALENDAR, tables: [] });
     const reading = result.reading.find((r) => r.relatedEventTitle === "Time Value of Money");
-    expect(reading?.title).toBe("Time Value of Money");
+    expect(reading?.title).toBe('Read BDH 3,4, "Time Value of Money"');
     expect(reading?.chapterOrSection).toBe("BDH 3,4");
     expect(reading?.relation).toBe("PREPARATION_FOR");
   });

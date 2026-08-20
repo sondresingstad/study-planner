@@ -9,6 +9,7 @@ import { Badge, requirementVariant } from "@/components/ui/badge";
 import { CategoryProgressRow } from "@/components/ui/category-progress-row";
 import { TaskCheckbox } from "@/components/ui/task-checkbox";
 import { AttendanceToggle } from "@/components/ui/attendance-toggle";
+import { DeleteCourseButton } from "@/components/delete-course-button";
 
 export default async function CourseDetailPage({ params }: PageProps<"/courses/[courseId]">) {
   const { courseId } = await params;
@@ -37,13 +38,16 @@ export default async function CourseDetailPage({ params }: PageProps<"/courses/[
           </div>
           <p className="text-sm text-muted mt-1">{course.semester}</p>
         </div>
-        <Link
-          href={`/courses/${course.id}/import`}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3.5 py-2 text-sm font-medium hover:bg-surface-hover"
-        >
-          <Upload size={15} />
-          Upload documents
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/courses/${course.id}/import`}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-3.5 py-2 text-sm font-medium hover:bg-surface-hover"
+          >
+            <Upload size={15} />
+            Upload documents
+          </Link>
+          <DeleteCourseButton courseId={course.id} courseCode={course.code} />
+        </div>
       </div>
 
       {pendingBatches.length > 0 && (

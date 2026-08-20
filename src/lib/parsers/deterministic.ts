@@ -158,8 +158,9 @@ function extractReadingAndExercisesFromProse(
     const pageMatch = contentText.match(PAGE_RANGE);
     const pageCount = pageMatch ? Number(pageMatch[2]) - Number(pageMatch[1]) + 1 : null;
     const chapterMatch = contentText.match(/\bchapters?\s+(\d+(?:\s*[-–,]\s*\d+)*)/i);
+    const readingTitle = (chapterMatch ? `Read Chapter ${chapterMatch[1]}, "${eventTitle}"` : `Read "${eventTitle}"`).slice(0, 120);
     reading.push({
-      title: chapterMatch ? `Chapter ${chapterMatch[1]}` : `Reading — ${eventTitle}`.slice(0, 120),
+      title: readingTitle,
       chapterOrSection: chapterMatch ? chapterMatch[1] : null,
       pageCount: pageCount != null && pageCount > 0 && pageCount < 500 ? pageCount : null,
       isArticle: false,
@@ -425,7 +426,7 @@ function extractFromText(text: string): {
 
       if (row.readingRef) {
         reading.push({
-          title: row.topic.slice(0, 120),
+          title: `Read ${row.readingRef}, "${row.topic}"`.slice(0, 120),
           chapterOrSection: row.readingRef,
           pageCount: null,
           isArticle: false,
