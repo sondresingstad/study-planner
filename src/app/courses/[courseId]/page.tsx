@@ -134,20 +134,23 @@ export default async function CourseDetailPage({ params }: PageProps<"/courses/[
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent</CardTitle>
+            <CardTitle>Tasks</CardTitle>
           </CardHeader>
           <CardBody className="p-0">
-            {pastEvents.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-muted">No past events yet.</p>
+            {tasks.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted">No tasks yet — upload course documents to generate them.</p>
             ) : (
-              <ul className="divide-y divide-border">
-                {pastEvents.map((event) => (
-                  <li key={event.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{event.title}</p>
-                      <p className="text-xs text-muted truncate">{event.topic}</p>
+              <ul className="divide-y divide-border max-h-96 overflow-y-auto">
+                {tasks.map((task) => (
+                  <li key={task.id} className="flex items-start gap-3 px-4 py-3">
+                    <TaskCheckbox taskId={task.id} completed={task.status === "DONE"} className="mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{task.title}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <Badge variant={requirementVariant(task.requirementLevel)}>{task.requirementLevel.toLowerCase()}</Badge>
+                        {task.minutes != null && <span className="text-xs text-muted">~{formatMinutes(task.minutes)}</span>}
+                      </div>
                     </div>
-                    <AttendanceToggle eventId={event.id} attended={event.attended} />
                   </li>
                 ))}
               </ul>
@@ -185,23 +188,20 @@ export default async function CourseDetailPage({ params }: PageProps<"/courses/[
 
       <Card>
         <CardHeader>
-          <CardTitle>Tasks</CardTitle>
+          <CardTitle>Recent</CardTitle>
         </CardHeader>
         <CardBody className="p-0">
-          {tasks.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-muted">No tasks yet — upload course documents to generate them.</p>
+          {pastEvents.length === 0 ? (
+            <p className="px-4 py-6 text-sm text-muted">No past events yet.</p>
           ) : (
-            <ul className="divide-y divide-border max-h-96 overflow-y-auto">
-              {tasks.map((task) => (
-                <li key={task.id} className="flex items-start gap-3 px-4 py-3">
-                  <TaskCheckbox taskId={task.id} completed={task.status === "DONE"} className="mt-0.5" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium truncate">{task.title}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <Badge variant={requirementVariant(task.requirementLevel)}>{task.requirementLevel.toLowerCase()}</Badge>
-                      {task.minutes != null && <span className="text-xs text-muted">~{formatMinutes(task.minutes)}</span>}
-                    </div>
+            <ul className="divide-y divide-border">
+              {pastEvents.map((event) => (
+                <li key={event.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{event.title}</p>
+                    <p className="text-xs text-muted truncate">{event.topic}</p>
                   </div>
+                  <AttendanceToggle eventId={event.id} attended={event.attended} />
                 </li>
               ))}
             </ul>
