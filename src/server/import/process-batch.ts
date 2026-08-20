@@ -171,6 +171,7 @@ async function writeExtractionResult(args: {
         sourceDocumentId,
         type: "READING",
         title: item.title,
+        description: item.chapterOrSection,
         pageCount: item.pageCount,
         articlePages: item.isArticle,
         requirementLevel: item.requirementLevel as RequirementLevel,

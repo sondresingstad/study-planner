@@ -22,6 +22,14 @@ const UNDATED_PATTERNS = [
   new RegExp(`\\b(\\d{1,2})\\s+(${MONTH_NAMES})\\b`, "i"), // 3 September
 ];
 
+// A short weekday tag immediately before the date — full name ("Wednesday,"),
+// three-letter abbreviation ("Wed,"), or a single-letter one as used in some
+// lecture plans ("F.," "W.,") — stripped out rather than left dangling in
+// the title. Matched generically (any short letters-only prefix) rather
+// than an explicit weekday list, since single-letter forms are ambiguous
+// and course documents don't use anything else this short in that position.
+const WEEKDAY_PREFIX = /^[a-z]{1,9}\.?,?$/i;
+
 function buildDate(y: number, m: number, d: number): Date | null {
   if (m < 1 || m > 12 || d < 1 || d > 31) return null;
   const date = new Date(y, m - 1, d);
@@ -84,10 +92,6 @@ function parseDatedMatch(match: RegExpMatchArray): Date | null {
 
 function parseUndatedMatch(match: RegExpMatchArray, year: number): Date | null {
   const [, a, b] = match;
-  if (/^\d+$/.test(a) && /^\d+$/.test(b)) {
-    // "D.M" (European day.month, no year).
-    return buildDate(year, Number(b), Number(a));
-  }
   const monthName = /[a-z]/i.test(a) ? a : b;
   const day = Number(/[a-z]/i.test(a) ? b : a);
   return buildDate(year, monthIndex(monthName), day);
@@ -99,6 +103,16 @@ function inferDocumentYear(text: string): number | null {
   const match = header.match(/\b(20\d{2})\b/);
   return match ? Number(match[1]) : null;
 }
+
+/** Removes a leftover separator (":", "-", "–", "—", ",") left behind after a date is stripped out of a line, e.g. "Sept 3: Topic" -> "Topic". */
+function stripLeadingPunctuation(text: string): string {
+  return text.replace(/^[\s:\-–—,]+/, "");
+}
+
+// --- Generic prose-style reading/exercise derivation ------------------------
+// Used when a content block doesn't look like a structured "Date Class Topic
+// Readings Activities" table row (see parseClassCalendarRow) — e.g. a plain
+// "Reading: Chapter 1, pp. 12-34" sentence under a date heading.
 
 const READING_KEYWORDS = /\b(chapter|chapters|ch\.|reading|readings)\b/i;
 const PAGE_RANGE = /\b(?:pp\.?|pages?)\s*(\d+)\s*[-–]\s*(\d+)/i;
@@ -133,7 +147,7 @@ function parseExerciseRangeCount(text: string): number | null {
   return null;
 }
 
-function extractReadingAndExercises(
+function extractReadingAndExercisesFromProse(
   contentText: string,
   eventTitle: string
 ): { reading: ExtractionResult["reading"]; exercises: ExtractionResult["exercises"] } {
@@ -157,6 +171,9 @@ function extractReadingAndExercises(
     });
   }
 
+  // Only create an exercise task when an actual number/range is present —
+  // the bare word "problem" (e.g. inside "problem-solving session") isn't
+  // enough on its own to justify a task with no real content.
   const exerciseKeywordMatch = contentText.match(EXERCISE_KEYWORDS);
   if (exerciseKeywordMatch && exerciseKeywordMatch.index != null) {
     const window = contentText.slice(exerciseKeywordMatch.index, exerciseKeywordMatch.index + 60);
@@ -165,18 +182,69 @@ function extractReadingAndExercises(
       const listMatch = contentText.match(EXERCISE_LIST);
       if (listMatch) exerciseCount = listMatch[1].split(/[,\s]+/).filter(Boolean).length || null;
     }
-    exercises.push({
-      title: `Exercises — ${eventTitle}`.slice(0, 120),
-      exerciseCount,
-      relatedEventTitle: eventTitle,
-      relation: "FOLLOW_UP_TO",
-      requirementLevel: "RECOMMENDED",
-      confidence: 0.35,
-      sourceSnippet: contentText.slice(0, 200),
-    });
+    if (exerciseCount != null) {
+      exercises.push({
+        title: `Exercises — ${eventTitle}`.slice(0, 120),
+        exerciseCount,
+        relatedEventTitle: eventTitle,
+        relation: "FOLLOW_UP_TO",
+        requirementLevel: "RECOMMENDED",
+        confidence: 0.35,
+        sourceSnippet: contentText.slice(0, 200),
+      });
+    }
   }
 
   return { reading, exercises };
+}
+
+// --- Structured "Date | Class | Topic | Readings | Activities" rows --------
+// Common in university lecture-plan tables: a leading class number (or a
+// "No lecture" marker), a topic, an optional textbook reference (e.g.
+// "BDH 3,4" or "Lecture notes"), and optional trailing activity notes.
+
+// Textbook references are usually a short all-caps abbreviation (the
+// authors' initials) followed by chapter numbers, e.g. "BDH 1,3-6" — or the
+// literal phrase "Lecture notes".
+const READING_REF = /\b([A-Z]{2,6})\s+(\d+(?:\s*[-–,]\s*\d+)*)\b|\bLecture notes\b/;
+const NO_LECTURE = /^no lecture!?\s*/i;
+const DEADLINE_TEXT = /\bdeadline\s+(.+)/i;
+const EXERCISE_CLASS_SIGNAL = /\bproblem-solving session\b|\bgroup work\b/i;
+
+type ClassCalendarRow =
+  | { kind: "no-lecture"; deadlineText: string | null }
+  | { kind: "lecture"; classNumber: string | null; topic: string; readingRef: string | null; activities: string };
+
+/**
+ * Recognizes a structured lecture-plan row and returns null when the
+ * content doesn't have the tell-tale leading class number / "No lecture"
+ * marker — callers fall back to prose-style extraction in that case.
+ */
+function parseClassCalendarRow(content: string): ClassCalendarRow | null {
+  const noLectureMatch = content.match(NO_LECTURE);
+  if (noLectureMatch) {
+    const rest = content.slice(noLectureMatch[0].length);
+    const deadlineMatch = rest.match(DEADLINE_TEXT);
+    return { kind: "no-lecture", deadlineText: deadlineMatch ? deadlineMatch[1].trim() : null };
+  }
+
+  const classNumMatch = content.match(/^\s*(\d{1,2})\s+(\S.*)$/);
+  if (!classNumMatch) return null;
+  const classNumber = classNumMatch[1];
+  const rest = classNumMatch[2];
+
+  const readingMatch = rest.match(READING_REF);
+  if (readingMatch && readingMatch.index != null) {
+    return {
+      kind: "lecture",
+      classNumber,
+      topic: rest.slice(0, readingMatch.index).trim(),
+      readingRef: readingMatch[0].trim(),
+      activities: rest.slice(readingMatch.index + readingMatch[0].length).trim(),
+    };
+  }
+
+  return { kind: "lecture", classNumber, topic: rest.trim(), readingRef: null, activities: "" };
 }
 
 function extractFromTables(tables: ParsedDocument["tables"]): ExtractionResult["events"] {
@@ -217,11 +285,6 @@ function extractFromTables(tables: ParsedDocument["tables"]): ExtractionResult["
   return events;
 }
 
-/** Removes a leftover separator (":", "-", "–", "—", ",") left behind after a date is stripped out of a line, e.g. "Sept 3: Topic" -> "Topic". */
-function stripLeadingPunctuation(text: string): string {
-  return text.replace(/^[\s:\-–—,]+/, "");
-}
-
 const MAX_CONTENT_LINES = 5;
 
 /**
@@ -235,10 +298,12 @@ function extractFromText(text: string): {
   events: ExtractionResult["events"];
   reading: ExtractionResult["reading"];
   exercises: ExtractionResult["exercises"];
+  milestones: ExtractionResult["milestones"];
 } {
   const events: ExtractionResult["events"] = [];
   const reading: ExtractionResult["reading"] = [];
   const exercises: ExtractionResult["exercises"] = [];
+  const milestones: ExtractionResult["milestones"] = [];
 
   const lines = text.split(/\r?\n/);
   const fallbackYear = inferDocumentYear(text);
@@ -251,12 +316,14 @@ function extractFromText(text: string): {
     if (line.trim().length === 0 || line.length > 200) continue; // skip blanks and long prose paragraphs
     const match = findDateInLine(line, fallbackYear);
     if (!match) continue;
-    // Only trust dates that anchor the row (near the start of the line) —
-    // a date buried mid-sentence is more likely a narrative mention than a
-    // calendar entry.
-    if (match.start > 25) continue;
+    // Only trust dates that anchor the row (right at the start of the
+    // line, allowing for a short weekday tag) — a date further into the
+    // line is more likely a narrative mention than a calendar entry.
+    if (match.start > 15) continue;
 
-    const trailingText = stripLeadingPunctuation((line.slice(0, match.start) + " " + line.slice(match.end)).trim());
+    const before = line.slice(0, match.start).trim();
+    const prefix = WEEKDAY_PREFIX.test(before) ? "" : before; // drop a bare weekday abbreviation like "F.,"
+    const trailingText = stripLeadingPunctuation((prefix + " " + line.slice(match.end)).trim());
     anchors.push({ lineIndex: i, date: match.date, trailingText });
   }
 
@@ -265,19 +332,89 @@ function extractFromText(text: string): {
     const nextAnchorLine = a + 1 < anchors.length ? anchors[a + 1].lineIndex : lines.length;
     const windowEnd = Math.min(nextAnchorLine, anchor.lineIndex + 1 + MAX_CONTENT_LINES);
 
+    // A row is already self-contained (no continuation lines needed) once
+    // its own trailing text carries a reading reference, or is a complete
+    // "no lecture / deadline ..." note — both are natural end-of-row
+    // markers in this format. Without this, a row with neither (e.g. a
+    // one-line "no lecture" note not immediately followed by a blank line)
+    // would keep absorbing whatever comes next, including an unrelated
+    // section heading.
+    const anchorIsSelfContained =
+      READING_REF.test(anchor.trailingText) ||
+      (NO_LECTURE.test(anchor.trailingText) && DEADLINE_TEXT.test(anchor.trailingText));
+
     const contentLines = [anchor.trailingText];
-    for (let i = anchor.lineIndex + 1; i < windowEnd; i++) {
-      const trimmed = lines[i].trim();
-      if (trimmed.length === 0) break; // blank line ends this row's content block
-      contentLines.push(trimmed);
+    if (!anchorIsSelfContained) {
+      for (let i = anchor.lineIndex + 1; i < windowEnd; i++) {
+        const trimmed = lines[i].trim();
+        if (trimmed.length === 0) break; // blank line ends this row's content block
+        contentLines.push(trimmed);
+        if (READING_REF.test(trimmed)) break; // reading reference is typically the last real content of a row
+      }
     }
 
     const content = contentLines.filter(Boolean);
     if (content.length === 0) continue; // date with nothing else — not enough to act on
+    const contentText = content.join(" ");
 
+    const row = parseClassCalendarRow(contentText);
+
+    if (row?.kind === "no-lecture") {
+      // "No lecture" rows don't get an event — but if they carry a
+      // "Deadline ..." note, that's a real milestone worth keeping.
+      if (row.deadlineText) {
+        milestones.push({
+          title: row.deadlineText.slice(0, 120),
+          type: "MANDATORY_ASSIGNMENT",
+          description: null,
+          deadline: formatIsoDateLocal(anchor.date),
+          wordCount: null,
+          requirements: null,
+          confidence: 0.4,
+          sourceSnippet: contentText.slice(0, 200),
+        });
+      }
+      continue;
+    }
+
+    if (row?.kind === "lecture") {
+      const isExerciseClass = EXERCISE_CLASS_SIGNAL.test(row.topic) || EXERCISE_CLASS_SIGNAL.test(row.activities);
+      const title = (row.classNumber ? `Class ${row.classNumber} — ${row.topic}` : row.topic).slice(0, 120);
+
+      events.push({
+        title,
+        type: isExerciseClass ? "EXERCISE_CLASS" : "LECTURE",
+        date: formatIsoDateLocal(anchor.date),
+        startTime: null,
+        endTime: null,
+        location: null,
+        topic: null,
+        description: null,
+        confidence: 0.4,
+        sourceSnippet: contentText.slice(0, 200),
+      });
+
+      if (row.readingRef) {
+        reading.push({
+          title: row.topic.slice(0, 120),
+          chapterOrSection: row.readingRef,
+          pageCount: null,
+          isArticle: false,
+          relatedEventTitle: row.topic,
+          relation: "PREPARATION_FOR",
+          requirementLevel: "RECOMMENDED",
+          confidence: 0.4,
+          sourceSnippet: contentText.slice(0, 200),
+        });
+      }
+      continue;
+    }
+
+    // Not a structured calendar row — fall back to treating the first line
+    // as the event title and deriving reading/exercise tasks from keywords
+    // anywhere in the block.
     const title = content[0].slice(0, 120);
     const detail = content.slice(1).join(" ").slice(0, 200);
-    const contentText = content.join(" ");
 
     events.push({
       title,
@@ -292,12 +429,12 @@ function extractFromText(text: string): {
       sourceSnippet: contentText.slice(0, 200),
     });
 
-    const derived = extractReadingAndExercises(contentText, title);
+    const derived = extractReadingAndExercisesFromProse(contentText, title);
     reading.push(...derived.reading);
     exercises.push(...derived.exercises);
   }
 
-  return { events, reading, exercises };
+  return { events, reading, exercises, milestones };
 }
 
 const EMPTY_RESULT: ExtractionResult = {
@@ -311,8 +448,8 @@ const EMPTY_RESULT: ExtractionResult = {
 /**
  * Deterministic, non-AI fallback (spec section 4): scans spreadsheet tables
  * and free-text "calendar" layouts for date-anchored rows, and turns them
- * into low-confidence draft events (plus reading/exercise tasks when a
- * chapter/page/exercise reference is nearby). Everything it produces is
+ * into low-confidence draft events (plus reading/exercise tasks, and
+ * milestones for "no lecture / deadline" rows). Everything it produces is
  * flagged for review — this is meant to save typing, not to be trusted
  * blindly.
  */
@@ -325,5 +462,6 @@ export function deterministicExtract(doc: ParsedDocument): ExtractionResult {
     events: [...tableEvents, ...fromText.events],
     reading: fromText.reading,
     exercises: fromText.exercises,
+    milestones: fromText.milestones,
   };
 }
