@@ -1,10 +1,11 @@
 "use client";
 
 import { useTransition } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, Calendar } from "lucide-react";
 import { deleteDraftTask, updateDraftTask } from "@/server/actions/import";
 import { NeedsReviewNote, SourceSnippet } from "./needs-review-note";
 import { formatMinutes } from "@/lib/estimation";
+import { formatRelativeDay } from "@/lib/dates";
 import type { RequirementLevel, Task } from "@prisma/client";
 
 const REQUIREMENT_LEVELS: RequirementLevel[] = ["REQUIRED", "RECOMMENDED", "OPTIONAL"];
@@ -80,7 +81,23 @@ export function TaskRow({ task }: { task: Task }) {
           <Trash2 size={15} />
         </button>
       </div>
-      {task.estimatedMinutes != null && <p className="text-xs text-muted mt-1.5">~{formatMinutes(task.estimatedMinutes)}</p>}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
+        {task.description && <p className="text-xs text-muted">{task.description}</p>}
+        {task.estimatedMinutes != null && <p className="text-xs text-muted">~{formatMinutes(task.estimatedMinutes)}</p>}
+        {task.recommendedDate && !task.dueDate && (
+          <p className="flex items-center gap-1 text-xs text-accent">
+            <Calendar size={11} />
+            Recommended by {formatRelativeDay(task.recommendedDate)}
+          </p>
+        )}
+        {task.dueDate && (
+          <p className="flex items-center gap-1 text-xs text-danger font-medium">
+            <Calendar size={11} />
+            Due {formatRelativeDay(task.dueDate)}
+          </p>
+        )}
+      </div>
+      {task.recommendedDateReason && <p className="text-xs text-muted mt-0.5">{task.recommendedDateReason}</p>}
       <NeedsReviewNote note={task.reviewNote} />
       <SourceSnippet snippet={task.sourceSnippet} />
     </li>

@@ -123,4 +123,65 @@ describe("deterministicExtract — free-text calendar scanning", () => {
     });
     expect(result.events).toHaveLength(0);
   });
+
+  it("picks up a standalone 'Exam: Date: ...' line as a milestone", () => {
+    const result = deterministicExtract({
+      text: [
+        "BED3E Finance — Fall 2026",
+        "",
+        "Deadline for assignment II: Wednesday, October 21",
+        "Exam: Date: Friday, December 4. Time: 09:00-13:00",
+        "The exam will include problem-solving using Excel.",
+      ].join("\n"),
+      tables: [],
+    });
+    expect(result.milestones).toHaveLength(1);
+    expect(result.milestones[0].type).toBe("EXAM");
+    expect(result.milestones[0].deadline).toBe("2026-12-04");
+  });
+});
+
+describe("deterministicExtract — structured 'Date Class Topic Readings Activities' rows", () => {
+  const CALENDAR = [
+    "BED3E Finance — Fall 2026",
+    "",
+    "F., Aug 21 1 Introduction. Firms, Financial",
+    "Markets and Financial Institutions.",
+    "BDH 1",
+    "W., Aug 26 2 Time Value of Money BDH 3,4",
+    "F., Sep 4 5 Problem-solving session 1 BDH 1,3-6 Group work with TA",
+    "W., Sep 24 No lecture! Deadline Assignment I",
+    "Risk, return, and portfolio management",
+    "F., Sep 26 10 Risk and return in capital markets BDH 11",
+  ].join("\n");
+
+  it("strips the weekday tag and builds 'Class N — Topic' titles, joining a wrapped topic", () => {
+    const result = deterministicExtract({ text: CALENDAR, tables: [] });
+    const first = result.events.find((e) => e.date === "2026-08-21");
+    expect(first?.title).toBe("Class 1 — Introduction. Firms, Financial Markets and Financial Institutions.");
+    expect(first?.type).toBe("LECTURE");
+  });
+
+  it("marks a 'problem-solving session' row as EXERCISE_CLASS, not a separate exercise task", () => {
+    const result = deterministicExtract({ text: CALENDAR, tables: [] });
+    const session = result.events.find((e) => e.date === "2026-09-04");
+    expect(session?.type).toBe("EXERCISE_CLASS");
+    expect(session?.title).toBe("Class 5 — Problem-solving session 1");
+    expect(result.exercises).toHaveLength(0);
+  });
+
+  it("creates a reading task per lecture, titled after the topic, with the textbook reference as description", () => {
+    const result = deterministicExtract({ text: CALENDAR, tables: [] });
+    const reading = result.reading.find((r) => r.relatedEventTitle === "Time Value of Money");
+    expect(reading?.title).toBe("Time Value of Money");
+    expect(reading?.chapterOrSection).toBe("BDH 3,4");
+    expect(reading?.relation).toBe("PREPARATION_FOR");
+  });
+
+  it("drops 'No lecture!' rows from events but turns an attached deadline into a milestone, without absorbing the following section header", () => {
+    const result = deterministicExtract({ text: CALENDAR, tables: [] });
+    expect(result.events.some((e) => e.date === "2026-09-24")).toBe(false);
+    const milestone = result.milestones.find((m) => m.deadline === "2026-09-24");
+    expect(milestone?.title).toBe("Assignment I");
+  });
 });

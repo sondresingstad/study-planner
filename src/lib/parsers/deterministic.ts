@@ -294,6 +294,32 @@ const MAX_CONTENT_LINES = 5;
  * every item it produces is low-confidence and flagged for review, the same
  * as the table scanner above.
  */
+// A standalone "Exam: Date: <date>. Time: <range>" style line, common
+// outside the main calendar table (in a "course approval"/"exam" section).
+// Not covered by the calendar-row anchor scan above, since that requires
+// the date very near the start of the line and this text precedes it.
+const EXAM_LINE = /^\s*exam:?\s*/i;
+
+function extractExamMilestone(text: string, fallbackYear: number | null): ExtractionResult["milestones"][number] | null {
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!EXAM_LINE.test(line)) continue;
+    const match = findDateInLine(line, fallbackYear);
+    if (!match) continue;
+    return {
+      title: "Exam",
+      type: "EXAM",
+      description: line,
+      deadline: formatIsoDateLocal(match.date),
+      wordCount: null,
+      requirements: null,
+      confidence: 0.4,
+      sourceSnippet: line.slice(0, 200),
+    };
+  }
+  return null;
+}
+
 function extractFromText(text: string): {
   events: ExtractionResult["events"];
   reading: ExtractionResult["reading"];
@@ -307,6 +333,9 @@ function extractFromText(text: string): {
 
   const lines = text.split(/\r?\n/);
   const fallbackYear = inferDocumentYear(text);
+
+  const exam = extractExamMilestone(text, fallbackYear);
+  if (exam) milestones.push(exam);
 
   type Anchor = { lineIndex: number; date: Date; trailingText: string };
   const anchors: Anchor[] = [];
