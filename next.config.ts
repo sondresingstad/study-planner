@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // pdf-parse (via pdfjs-dist) needs native Node.js require rather than
+  // Next's Server Components bundling, or it can't locate its worker
+  // module at runtime — see src/lib/parsers/pdf.ts.
+  serverExternalPackages: ["pdf-parse"],
   experimental: {
     serverActions: {
       // Course documents can be several MB (PDFs/xlsx); the default 1mb limit

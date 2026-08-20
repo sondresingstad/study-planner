@@ -1,13 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileText, X, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export function DocumentUploadForm({ courseId }: { courseId: string }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -57,7 +56,8 @@ export function DocumentUploadForm({ courseId }: { courseId: string }) {
 
   return (
     <div className="space-y-4">
-      <div
+      <label
+        htmlFor="course-document-upload"
         onDragOver={(e) => {
           e.preventDefault();
           setIsDragging(true);
@@ -68,7 +68,6 @@ export function DocumentUploadForm({ courseId }: { courseId: string }) {
           setIsDragging(false);
           addFiles(e.dataTransfer.files);
         }}
-        onClick={() => inputRef.current?.click()}
         className={cn(
           "flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-6 py-12 text-center cursor-pointer transition-colors",
           isDragging ? "border-accent bg-accent/5" : "border-border hover:border-accent/40"
@@ -78,14 +77,14 @@ export function DocumentUploadForm({ courseId }: { courseId: string }) {
         <p className="text-sm font-medium">Drag files here, or click to browse</p>
         <p className="text-xs text-muted mt-1">PDF, XLSX, DOCX, or TXT — upload as many as you have</p>
         <input
-          ref={inputRef}
+          id="course-document-upload"
           type="file"
           multiple
           accept=".pdf,.xlsx,.xls,.docx,.txt"
           className="hidden"
           onChange={(e) => addFiles(e.target.files)}
         />
-      </div>
+      </label>
 
       {files.length > 0 && (
         <ul className="divide-y divide-border rounded-lg border border-border">
