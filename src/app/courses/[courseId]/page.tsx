@@ -148,6 +148,13 @@ export default async function CourseDetailPage({ params }: PageProps<"/courses/[
                       <p className="text-sm font-medium truncate">{task.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         <Badge variant={requirementVariant(task.requirementLevel)}>{task.requirementLevel.toLowerCase()}</Badge>
+                        {task.dueDate ? (
+                          <Badge variant="official">Due {formatRelativeDay(task.dueDate, now)}</Badge>
+                        ) : (
+                          task.recommendedDate && (
+                            <Badge variant="recommended">{formatRelativeDay(task.recommendedDate, now)}</Badge>
+                          )
+                        )}
                         {task.minutes != null && <span className="text-xs text-muted">~{formatMinutes(task.minutes)}</span>}
                       </div>
                     </div>
