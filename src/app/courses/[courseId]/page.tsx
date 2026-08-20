@@ -25,6 +25,7 @@ export default async function CourseDetailPage({ params }: PageProps<"/courses/[
     .filter((e) => e.date.getTime() < now.getTime())
     .slice(-4)
     .reverse();
+  const openTasks = tasks.filter((t) => t.status !== "DONE");
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8 space-y-6">
@@ -101,6 +102,7 @@ export default async function CourseDetailPage({ params }: PageProps<"/courses/[
           <CategoryProgressRow category={progress.attendance} />
           <CategoryProgressRow category={progress.reading} />
           <CategoryProgressRow category={progress.exercises} />
+          <CategoryProgressRow category={progress.videos} />
           <CategoryProgressRow category={progress.assignments} />
         </CardBody>
       </Card>
@@ -137,11 +139,13 @@ export default async function CourseDetailPage({ params }: PageProps<"/courses/[
             <CardTitle>Tasks</CardTitle>
           </CardHeader>
           <CardBody className="p-0">
-            {tasks.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-muted">No tasks yet — upload course documents to generate them.</p>
+            {openTasks.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-muted">
+                {tasks.length === 0 ? "No tasks yet — upload course documents to generate them." : "All caught up."}
+              </p>
             ) : (
               <ul className="divide-y divide-border max-h-96 overflow-y-auto">
-                {tasks.map((task) => (
+                {openTasks.map((task) => (
                   <li key={task.id} className="flex items-start gap-3 px-4 py-3">
                     <TaskCheckbox taskId={task.id} completed={task.status === "DONE"} className="mt-0.5" />
                     <div className="min-w-0 flex-1">

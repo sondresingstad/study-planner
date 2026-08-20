@@ -66,17 +66,19 @@ export function computeProgress(
   const pastEvents = approvedEvents.filter((e) => e.date.getTime() <= now.getTime());
   const attendedCount = pastEvents.filter((e) => e.attended).length;
 
-  const readingTasks = approvedTasks.filter((t) => t.type === "READING" && t.pageCount != null);
-  const totalPages = sumMinutes(readingTasks.map((t) => t.pageCount));
-  const donePages = sumMinutes(readingTasks.filter((t) => t.status === DONE).map((t) => t.pageCount));
+  // Reading and videos are counted by task, not weighted by page/minute
+  // quantity — the deterministic parsers never fill in pageCount or
+  // videoMinutes, so a quantity-weighted bar would always read "No data
+  // yet" for real imported courses.
+  const readingTasks = approvedTasks.filter((t) => t.type === "READING");
+  const doneReadingTasks = readingTasks.filter((t) => t.status === DONE).length;
 
   const exerciseTasks = approvedTasks.filter((t) => t.type === "EXERCISE" && t.exerciseCount != null);
   const totalExercises = sumMinutes(exerciseTasks.map((t) => t.exerciseCount));
   const doneExercises = sumMinutes(exerciseTasks.filter((t) => t.status === DONE).map((t) => t.exerciseCount));
 
-  const videoTasks = approvedTasks.filter((t) => t.type === "VIDEO" && t.videoMinutes != null);
-  const totalVideoMinutes = sumMinutes(videoTasks.map((t) => t.videoMinutes));
-  const doneVideoMinutes = sumMinutes(videoTasks.filter((t) => t.status === DONE).map((t) => t.videoMinutes));
+  const videoTasks = approvedTasks.filter((t) => t.type === "VIDEO");
+  const doneVideoTasks = videoTasks.filter((t) => t.status === DONE).length;
 
   const otherTasks = approvedTasks.filter((t) => t.type === "WRITING" || t.type === "QUIZ" || t.type === "OTHER");
   const doneOther = otherTasks.filter((t) => t.status === DONE).length;
@@ -86,9 +88,9 @@ export function computeProgress(
   return {
     studyWorkload: category("Study workload", "min", doneMinutes, totalMinutes),
     attendance: category("Attendance", "lectures", attendedCount, pastEvents.length),
-    reading: category("Reading", "pages", donePages, totalPages),
+    reading: category("Reading", "readings", doneReadingTasks, readingTasks.length),
     exercises: category("Exercises", "exercises", doneExercises, totalExercises),
-    videos: category("Videos", "min", doneVideoMinutes, totalVideoMinutes),
+    videos: category("Videos", "videos", doneVideoTasks, videoTasks.length),
     assignments: category("Assignments", "milestones", doneMilestones, approvedMilestones.length),
     other: category("Other", "tasks", doneOther, otherTasks.length),
   };

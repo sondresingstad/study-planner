@@ -18,15 +18,29 @@ function task(overrides: Partial<Parameters<typeof computeProgress>[0][number]>)
 }
 
 describe("computeProgress", () => {
-  it("weighs reading progress by pages, not task count", () => {
+  it("counts reading progress by task, not page count", () => {
+    // Deterministic imports never fill in pageCount, so reading (and video)
+    // progress is measured by how many tasks are done, not by quantity.
     const tasks = [
       task({ status: "DONE", pageCount: 10 }),
       task({ status: "TODO", pageCount: 90 }),
+      task({ status: "TODO", pageCount: null }),
     ];
     const result = computeProgress(tasks, [], []);
-    expect(result.reading.completed).toBe(10);
-    expect(result.reading.total).toBe(100);
-    expect(result.reading.percent).toBe(10);
+    expect(result.reading.completed).toBe(1);
+    expect(result.reading.total).toBe(3);
+    expect(result.reading.percent).toBe(33);
+  });
+
+  it("counts video progress by task, not minutes", () => {
+    const tasks = [
+      task({ type: "VIDEO", status: "DONE", videoMinutes: null }),
+      task({ type: "VIDEO", status: "DONE", videoMinutes: null }),
+      task({ type: "VIDEO", status: "TODO", videoMinutes: null }),
+    ];
+    const result = computeProgress(tasks, [], []);
+    expect(result.videos.completed).toBe(2);
+    expect(result.videos.total).toBe(3);
   });
 
   it("keeps attendance separate from study workload", () => {
@@ -49,7 +63,7 @@ describe("computeProgress", () => {
       task({ status: "TODO", pageCount: 500, approved: false }),
     ];
     const result = computeProgress(tasks, [], []);
-    expect(result.reading.total).toBe(20);
+    expect(result.reading.total).toBe(1);
   });
 
   it("returns null percent instead of 0 when there is nothing to measure", () => {
