@@ -43,6 +43,9 @@
     "typescript": "^5",
     "vitest": "^4.1.10"
   },
+  "overrides": {
+    "@napi-rs/canvas": "0.1.100"
+  },
   "allowScripts": {
     "prisma@7.9.1": true,
     "@prisma/engines@7.9.1": true,
